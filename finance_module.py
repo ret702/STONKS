@@ -1,7 +1,7 @@
 import robin_stocks.robinhood as r
 import pyotp
 
-totp  = pyotp.TOTP("XILXBFWCNNOMVNZM").now()
+totp  = pyotp.TOTP("").now()
 login = r.login("","")
 watchlist_name="Automated Buys"
 stock_list=None
