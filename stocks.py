@@ -2,15 +2,19 @@ import robin_stocks.robinhood as r
 import pyotp
 from schedule import every, repeat, run_pending
 import time
-
-totp  = pyotp.TOTP("").now()
-login = r.login("","")
-
-stock_list=None
+import requests
+import pandas as pd
+import numpy as np
+import yfinance as yf
+from threading import Thread
+import math
 
 
 def on_start():
-     while True:
+    totp  = pyotp.TOTP("").now()
+    login = r.login("","")
+    stock_list=None
+    while True:
         schedule.run_pending()
         time.sleep(1)
 
@@ -107,12 +111,79 @@ jsonify (Optional[str]) – If set to False, function will return the request ob
 @repeat(every().day.at("12:00","America/New_York"))
 def buy_option(positionEffect,creditOrDebit,price,symbol,
                quantity,expirationDate,strike,optionType,timeInForce,jsonify ):
-    buy_option_limit_stop()
+    buy_option_limit_stop(positionEffect,creditOrDebit,price,symbol,
+               quantity,expirationDate,strike,optionType,timeInForce,jsonify)
 
-def buy_option_limit_stop():
+def buy_option_limit_stop(positionEffect,creditOrDebit,price,symbol,
+               quantity,expirationDate,strike,optionType,timeInForce,jsonify):
     r.robinhood.orders.order_buy_option_stop_limit(positionEffect,creditOrDebit,price,symbol,
                quantity,expirationDate,strike,optionType,timeInForce,jsonify)
 
-on_start()
-   
 
+def historic():
+    # Define the ticker symbol and date range
+    ticker = "^VIX"
+    start_date = "2010-01-01"
+    end_date = "2022-04-25"
+
+    # Get the data from Yahoo Finance
+    vix_data = yf.download(ticker, start=start_date, end=end_date)
+
+    # Calculate the daily returns
+    daily_returns = np.log(1 + vix_data['Adj Close'].pct_change())
+
+    # Calculate the historical volatility
+    historical_volatility = daily_returns.std() * np.sqrt(252)
+
+    print(f"The historical volatility of {ticker} is {historical_volatility:.2f}%")
+
+def vix():
+    # Define the API endpoint and parameters
+    endpoint = "https://www.alphavantage.co/query"
+    function = "TIME_SERIES_INTRADAY"
+    symbol = "APPL"
+    interval = "5min"
+    apikey = "YOUR_API_KEY"
+
+    # Define the request URL
+    url = f"{endpoint}?function={function}&symbol={symbol}&interval={interval}&apikey={apikey}"
+
+    # Send the request and parse the JSON response
+    response = requests.get(url)
+    data = response.json()
+
+    # Extract the data from the response and convert it to a DataFrame
+    data = data["Time Series (5min)"]
+    df = pd.DataFrame.from_dict(data, orient="index")
+    df.index.name = "Timestamp"
+    df.columns = ["Open", "High", "Low", "Close", "Volume"]
+
+    # Convert the data types and sort the DataFrame by the timestamp
+    df = df.astype(float).sort_index()
+
+    print(df)
+
+
+def start_thread(ticker,period,interval):
+    thread = Thread(target = get_live_data, args = (ticker,period,interval))
+    thread.start()
+    thread.join()
+
+def get_live_data(tickers,period,interval):    
+    data= yf.download(tickers=tickers,period=period,interval=interval)
+    analyze_data(data)
+
+def analyze_data(data):
+    value = 0
+    increasing = False
+    for x in data["Open"]:
+        x = truncate(x,2)
+        if(x>value):
+            increasing = True
+            value = x
+    return increasing
+
+def truncate(f, n):
+    return math.floor(f * 10 ** n) / 10 ** n
+
+get_live_data("SPY","5m","1m")
