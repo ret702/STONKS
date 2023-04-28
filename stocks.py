@@ -8,16 +8,23 @@ import numpy as np
 import yfinance as yf
 from threading import Thread
 import math
+from datetime import date
 
+
+chain=None
 
 def on_start():
     totp  = pyotp.TOTP("").now()
     login = r.login("","")
     stock_list=None
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
-
+    # while True:
+    #     schedule.run_pending()
+    #     time.sleep(1)
+def get_option_high_low(symbol):
+    for option in chain:
+        print(float(math.fabs(option["strike_price"]) - float(r.stocks.get_latest_price(symbol))))
+def get_chain(ticker):
+    return chain
 def get_stock_list():
     stock_list = r.build_holdings()
     print("LOG: loading holdings...")
@@ -172,7 +179,12 @@ def start_thread(ticker,period,interval):
 def get_live_data(tickers,period,interval):    
     data= yf.download(tickers=tickers,period=period,interval=interval)
     analyze_data(data)
+  
 
+def get_option_chain(ticker):
+    global chain
+    chain = r.options.find_options_by_expiration(ticker,str(date.today()),"call")
+    print(chain)
 def analyze_data(data):
     value = 0
     increasing = False
@@ -180,10 +192,16 @@ def analyze_data(data):
         x = truncate(x,2)
         if(x>value):
             increasing = True
-            value = x
+        else:
+            increasing = False  
+        value = x  
     return increasing
 
 def truncate(f, n):
     return math.floor(f * 10 ** n) / 10 ** n
 
+on_start()
 get_live_data("SPY","5m","1m")
+get_option_chain("SPY")
+get_option_high_low("SPY")
+
